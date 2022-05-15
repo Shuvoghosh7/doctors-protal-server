@@ -2,8 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config()
-const port=process.env.PORT || 5000;
-const app=express()
+const port = process.env.PORT || 5000;
+const app = express()
 
 
 //meddle ware
@@ -16,36 +16,65 @@ app.use(express.json())
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.l7piq.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
-async function run(){
-    try{
-        await client.connect();
-        console.log("data base connected")
-        const serviceCollection = client.db('doctors_protal').collection('services');
-        const bookingCollection = client.db('doctors_protal').collection('booking');
+async function run() {
+  try {
+    await client.connect();
+    console.log("data base connected")
+    const serviceCollection = client.db('doctors_protal').collection('services');
+    const bookingCollection = client.db('doctors_protal').collection('booking');
 
-        app.get('/service',async(req,res)=>{
-            const quary={}
-            const cursor=serviceCollection.find(quary)
-            const services=await cursor.toArray();
-            res.send(services)
-        })
+    app.get('/service', async (req, res) => {
+      const quary = {}
+      const cursor = serviceCollection.find(quary)
+      const services = await cursor.toArray();
+      res.send(services)
+    })
+    // query api
+    //worning
+    //This is not the proper way to query.
+    //After learning more about mongodb,use aggregate lookup,pipeline,match,group
+    app.get('/available', async (req, res) => {
+      const date = req.query.date;
 
-        // add booking
-        app.post('/booking',async(req,res)=>{
-          const booking=req.body
-          const quary={treatment:booking.treatment,date:booking.date,patient:booking.patient
-          }
-          const exists=await bookingCollection.findOne(quary)
-          if(exists){
-            return res.send({success:false,booking:exists})
-          }
-          const result=await bookingCollection.insertOne(booking);
-          return res.send({success:true,result})
-        })
-    }
-    finally{
+      // step 1:  get all services
+      const services = await serviceCollection.find().toArray();
 
-    }
+      // step 2: get the booking of that day. output: [{}, {}, {}, {}, {}, {}]
+      const query = { date: date };
+      const bookings = await bookingCollection.find(query).toArray();
+
+      // step 3: for each service
+      services.forEach(service => {
+        // step 4: find bookings for that service. output: [{}, {}, {}, {}]
+        const serviceBookings = bookings.filter(book => book.treatment === service.name);
+        // step 5: select slots for the service Bookings: ['', '', '', '']
+        const bookedSlots = serviceBookings.map(book => book.slot);
+        // step 6: select those slots that are not in bookedSlots
+        const available = service.slots.filter(slot => !bookedSlots.includes(slot));
+        //step 7: set available to slots to make it easier 
+        service.slots = available;
+      });
+
+
+      res.send(services);
+    })
+    // add booking
+    app.post('/booking', async (req, res) => {
+      const booking = req.body
+      const quary = {
+        treatment: booking.treatment, date: booking.date, patient: booking.patient
+      }
+      const exists = await bookingCollection.findOne(quary)
+      if (exists) {
+        return res.send({ success: false, booking: exists })
+      }
+      const result = await bookingCollection.insertOne(booking);
+      return res.send({ success: true, result })
+    })
+  }
+  finally {
+
+  }
 }
 run().catch(console.dir)
 
