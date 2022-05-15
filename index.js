@@ -21,6 +21,7 @@ async function run(){
         await client.connect();
         console.log("data base connected")
         const serviceCollection = client.db('doctors_protal').collection('services');
+        const bookingCollection = client.db('doctors_protal').collection('booking');
 
         app.get('/service',async(req,res)=>{
             const quary={}
@@ -29,6 +30,18 @@ async function run(){
             res.send(services)
         })
 
+        // add booking
+        app.post('/booking',async(req,res)=>{
+          const booking=req.body
+          const quary={treatment:booking.treatment,date:booking.date,patient:booking.patient
+          }
+          const exists=await bookingCollection.findOne(quary)
+          if(exists){
+            return res.send({success:false,booking:exists})
+          }
+          const result=await bookingCollection.insertOne(booking);
+          return res.send({success:true,result})
+        })
     }
     finally{
 
