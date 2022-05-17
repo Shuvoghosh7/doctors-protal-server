@@ -163,6 +163,13 @@ async function run() {
       const doctor= await dectorCollection.find().toArray()
       res.send(doctor)
     })
+    //Delete Doctor
+    app.delete('/doctor/:email',verifyJwt,verifyAdmin, async(req,res)=>{
+      const email=req.params.email
+      const filter={email:email}
+      const result= await dectorCollection.deleteOne(filter)
+      res.send(result)
+    })
   }
   finally {
 
