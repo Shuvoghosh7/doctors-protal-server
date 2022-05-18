@@ -1,11 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 const app = express()
-
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 //meddle ware
 app.use(cors());
@@ -124,7 +124,7 @@ async function run() {
 
       res.send(services);
     })
-    // user wasyes appoiment 
+    // user wasyes appoiment booking
     app.get('/booking', verifyJwt, async (req, res) => {
       const patient = req.query.patient;
       const decodedEmail = req.decoded.email
@@ -138,6 +138,14 @@ async function run() {
       }
 
     })
+    //load  single booking by id
+    app.get('/booking/:id',verifyJwt, async(req,res)=>{
+      const id=req.params.id
+      const query={_id:ObjectId(id)}
+      const booking=await bookingCollection.findOne(query)
+      res.send(booking)
+    })
+
     // add booking
     app.post('/booking', async (req, res) => {
       const booking = req.body
@@ -170,6 +178,18 @@ async function run() {
       const result= await dectorCollection.deleteOne(filter)
       res.send(result)
     })
+    // payment method
+    app.post('/create-payment-intent', verifyJwt, async(req, res) =>{
+      const service = req.body;
+      const price = service.price;
+      const amount = price*100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount : amount,
+        currency: 'usd',
+        payment_method_types:['card']
+      });
+      res.send({clientSecret: paymentIntent.client_secret})
+    });
   }
   finally {
 
