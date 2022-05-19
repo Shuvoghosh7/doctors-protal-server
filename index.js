@@ -42,6 +42,7 @@ async function run() {
     const bookingCollection = client.db('doctors_protal').collection('booking');
     const userCollection = client.db('doctors_protal').collection('user');
     const dectorCollection = client.db('doctors_protal').collection('dector');
+    const paymentCollection = client.db('doctors_protal').collection('payments');
     
     // verifyAdmin function
     const verifyAdmin = async(req, res, next)=>{
@@ -190,6 +191,23 @@ async function run() {
       });
       res.send({clientSecret: paymentIntent.client_secret})
     });
+
+    // update booking for payment
+    app.patch('/booking/:id', verifyJwt, async(req, res) =>{
+      const id  = req.params.id;
+      const payment = req.body;
+      const filter = {_id: ObjectId(id)};
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId
+        }
+      }
+
+      const result = await paymentCollection.insertOne(payment);
+      const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
+      res.send(updatedBooking);
+    })
   }
   finally {
 
